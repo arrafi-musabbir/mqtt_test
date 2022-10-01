@@ -19,12 +19,18 @@
 #include "lwip/dns.h"
 #include "lwip/netdb.h"
 
+#include "driver/gpio.h"
+
 #include "esp_log.h"
 #include "mqtt_client.h"
 
 #include "wifi_manager.h"
 
+
+#define PUSH_BUTTON_PIN 33
+
 static const char *TAG = "MQTT_EXAMPLE";
+bool flag = 0;
 
 
 static void log_error_if_nonzero(const char *message, int error_code)
@@ -137,11 +143,54 @@ void cb_connection_ok(void *pvParameter){
 	ESP_LOGI(TAG, "I have a connection and my IP is %s!", str_ip);
 }
 
+void vWIFItask( void * pvParameters )
+{
+    gpio_set_direction(PUSH_BUTTON_PIN, GPIO_MODE_INPUT);
+    while(true){
+        if(gpio_get_level(PUSH_BUTTON_PIN) == 1){
+            wifi_manager_destroy();
+            nvs_flash_erase();   
+            vTaskDelay(1);
+            wifi_manager_start();
+            wifi_manager_set_callback(WM_EVENT_STA_GOT_IP, &cb_connection_ok);
+        }
+        else if (!flag){
+            wifi_manager_start();
+            wifi_manager_set_callback(WM_EVENT_STA_GOT_IP, &cb_connection_ok);
+            flag = 1;
+        }
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+}
+
+// void vMQTTtask( void * pvParameters )
+// {
+//     ESP_LOGI(TAG, "[APP] Startup..");
+//     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
+//     ESP_LOGI(TAG, "[APP] IDF version: %s", esp_get_idf_version());
+
+//     esp_log_level_set("*", ESP_LOG_INFO);
+//     esp_log_level_set("MQTT_CLIENT", ESP_LOG_VERBOSE);
+//     esp_log_level_set("MQTT_EXAMPLE", ESP_LOG_VERBOSE);
+//     esp_log_level_set("TRANSPORT_BASE", ESP_LOG_VERBOSE);
+//     esp_log_level_set("esp-tls", ESP_LOG_VERBOSE);
+//     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
+//     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
+
+//     ESP_ERROR_CHECK(nvs_flash_init());
+//     ESP_ERROR_CHECK(esp_netif_init());
+//     // ESP_ERROR_CHECK(esp_event_loop_create_default());
+//     mqtt_app_start();
+//     vTaskDelay(1000 / portTICK_PERIOD_MS);
+// }
+
 void app_main(void)
 
 {  
-    wifi_manager_start();
-    wifi_manager_set_callback(WM_EVENT_STA_GOT_IP, &cb_connection_ok);
+    ESP_ERROR_CHECK(nvs_flash_init());
+    xTaskCreatePinnedToCore( vWIFItask, "WIFI", 4096, NULL, 10, NULL, 1);
+    // xTaskCreatePinnedToCore( vMQTTtask, "MQTT", 4096, NULL, 10, NULL, 0);
+
 
     ESP_LOGI(TAG, "[APP] Startup..");
     ESP_LOGI(TAG, "[APP] Free memory: %d bytes", esp_get_free_heap_size());
@@ -155,10 +204,11 @@ void app_main(void)
     esp_log_level_set("TRANSPORT", ESP_LOG_VERBOSE);
     esp_log_level_set("OUTBOX", ESP_LOG_VERBOSE);
 
-    ESP_ERROR_CHECK(nvs_flash_init());
+    
     ESP_ERROR_CHECK(esp_netif_init());
     // ESP_ERROR_CHECK(esp_event_loop_create_default());
     
 
     mqtt_app_start();
 }
+    

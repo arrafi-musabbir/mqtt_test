@@ -11,5 +11,11 @@
     "idf.portWin": "COM5",
     "idf.pythonBinPathWin": "C:\\Users\\musab\\.espressif\\python_env\\idf4.4_py3.8_env\\Scripts\\python.exe",
     "idf.toolsPathWin": "C:\\Users\\musab\\.espressif",
-    "idf.flashType": "UART"
+    "idf.flashType": "UART",
+    "files.associations": {
+        "freertos.h": "c",
+        "mqtt_client.h": "c",
+        "*.inc": "c",
+        "esp_event.h": "c"
+    }
 }
